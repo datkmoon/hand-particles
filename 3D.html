@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Hand Particles</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #video-container { position: absolute; transform: scaleX(-1); opacity: 0.3; pointer-events: none; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+<video id="input_video" style="display:none"></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+/** 1. إعداد Three.js **/
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// إنشاء الجزيئات
+const particleCount = 2000;
+const geometry = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const colors = new Float32Array(particleCount * 3);
+
+for (let i = 0; i < particleCount * 3; i++) {
+    positions[i] = (Math.random() - 0.5) * 10;
+    colors[i] = Math.random();
+}
+
+geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+const material = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true });
+const points = new THREE.Points(geometry, material);
+scene.add(points);
+
+camera.position.z = 5;
+
+/** 2. إعداد MediaPipe لتتبع اليد **/
+const videoElement = document.getElementById('input_video');
+const hands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+});
+
+hands.onResults((results) => {
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const hand = results.multiHandLandmarks[0];
+        
+        // تتبع السبابة (نقطة رقم 8)
+        const indexTip = hand[8];
+        const tx = (indexTip.x - 0.5) * -10; // تحويل الإحداثيات لـ Three.js
+        const ty = (indexTip.y - 0.5) * -6;
+
+        // تأثير "القرصة" (بين الإبهام رقم 4 والسبابة رقم 8)
+        const thumbTip = hand[4];
+        const dist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+
+        updateParticles(tx, ty, dist);
+    }
+});
+
+/** 3. تحريك الجزيئات **/
+function updateParticles(targetX, targetY, pinchDist) {
+    const posAttr = geometry.attributes.position;
+    for (let i = 0; i < particleCount; i++) {
+        let x = posAttr.getX(i);
+        let y = posAttr.getY(i);
+
+        // الجزيئات تقترب من الإصبع
+        x += (targetX - x) * 0.05 * (Math.random());
+        y += (targetY - y) * 0.05 * (Math.random());
+
+        // إذا كانت المسافة صغيرة (قرصة)، تنفجر الجزيئات أو تتغير
+        if (pinchDist < 0.05) {
+            x += (Math.random() - 0.5) * 0.5;
+            material.color.setHSL(Math.random(), 0.8, 0.5);
+        }
+
+        posAttr.setXY(i, x, y);
+    }
+    posAttr.needsUpdate = true;
+}
+
+const cameraUtils = new Camera(videoElement, {
+    onFrame: async () => { await hands.send({image: videoElement}); },
+    width: 640, height: 480
+});
+cameraUtils.start();
+
+function animate() {
+    requestAnimationFrame(animate);
+    points.rotation.y += 0.002;
+    renderer.render(scene, camera);
+}
+animate();
+
+// التعامل مع تغيير حجم النافذة
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
