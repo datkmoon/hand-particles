@@ -111,6 +111,30 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 /* LOADING */
 #ld{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .8s;}
 #ld.gone{opacity:0;pointer-events:none;}
+/* FUTURISTIC / HOLOGRAM EFFECTS */
+.holo-glow{text-shadow:0 0 10px var(--ac),0 0 20px var(--ac2),0 0 40px var(--ac);}
+.panel.holo-mode{border-color:rgba(0,255,204,.35);background:rgba(6,9,18,.92);box-shadow:0 0 30px rgba(0,255,204,.08),inset 0 0 20px rgba(0,255,204,.04);animation:holoPulse 4s infinite alternate;}
+@keyframes holoPulse{from{box-shadow:0 0 20px rgba(0,255,204,.08),inset 0 0 20px rgba(0,255,204,.04);}to{box-shadow:0 0 40px rgba(0,255,204,.18),inset 0 0 30px rgba(0,255,204,.08);}}
+#cur.holo{box-shadow:0 0 15px var(--ac),0 0 30px var(--ac2);}
+/* GAME MODE OVERLAYS */
+.gm-ov{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;font-family:'Orbitron',sans-serif;font-size:clamp(20px,6vw,70px);font-weight:900;color:rgba(0,255,204,.9);text-align:center;letter-spacing:8px;text-shadow:0 0 30px var(--ac),0 0 60px var(--ac2);pointer-events:none;opacity:0;transition:opacity .4s;}
+.gm-ov.active{opacity:1;animation:fadeUp .6s ease;}
+@keyframes fadeUp{from{transform:translate(-50%,calc(-50%+30px));opacity:0;}to{transform:translate(-50%,-50%);opacity:1;}}
+/* SPACE NEON BACKGROUND */
+.space-stars{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(circle at 50% 30%,rgba(0,255,204,.05) 0%,transparent 60%),radial-gradient(circle at 80% 80%,rgba(255,200,0,.05) 0%,transparent 50%);}
+/* EYE TRACKING OVERLAY */
+.eye-track-box{position:fixed;top:20px;right:160px;z-index:25;background:rgba(6,9,18,.85);border:1px solid rgba(0,255,204,.25);border-radius:10px;padding:8px 12px;font-family:'Orbitron',sans-serif;font-size:9px;color:var(--tx);pointer-events:none;display:none;}
+.eye-track-box.on{display:block;}
+/* GAME MODE BUTTONS */
+.gm-btn{display:inline-block;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);font-size:9px;color:var(--mu);font-family:'Orbitron',sans-serif;cursor:none;text-align:center;transition:all .2s;margin:2px;}
+.gm-btn:hover,.gm-btn.active{border-color:var(--ac);color:var(--ac);background:rgba(0,255,204,.1);box-shadow:0 0 10px rgba(0,255,204,.2);}
+/* NEON PARTICLE COLOR MODE */
+body.neon-mode .panel{border-color:rgba(255,0,200,.3);background:rgba(10,0,15,.93);}
+body.neon-mode{--ac:#ff00c8;--ac2:#00e5ff;}
+/* GAME OVERLAY MODE BADGE */
+.gm-badge{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:25;padding:4px 14px;border-radius:20px;background:rgba(0,255,204,.1);border:1px solid rgba(0,255,204,.3);font-family:'Orbitron',sans-serif;font-size:9px;color:var(--ac);letter-spacing:2px;text-transform:uppercase;pointer-events:none;display:none;}
+.gm-badge.on{display:block;animation:badgePop .3s ease;}
+@keyframes badgePop{from{transform:translateX(-50%) scale(.8);opacity:0;}to{transform:translateX(-50%) scale(1);opacity:1;}}
 .lt{font-family:'Orbitron',sans-serif;font-size:clamp(14px,3vw,26px);font-weight:900;letter-spacing:5px;background:linear-gradient(135deg,var(--ac),#00aaff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .lb-w{width:180px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;}
 .lb{height:100%;background:linear-gradient(90deg,var(--ac),#00aaff);border-radius:2px;width:0%;transition:width .4s;}
@@ -125,9 +149,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="cur"></div><div id="cur-ring"></div>
+<div class="gm-ov" id="gm-ov">HAND CONTROL</div>
+<div class="gm-badge" id="gm-badge">HAND MODE</div>
+<div class="eye-track-box" id="eye-box">EYE TRACKING: ACTIVE</div>
+<div class="space-stars"></div>
 <div id="ld"><div class="lt">PARTICLE UNIVERSE</div><div class="lb-w"><div class="lb" id="lb"></div></div><div class="lm" id="lm">INITIALIZING...</div></div>
 <div id="toast"></div>
 <div id="cc"></div>
@@ -140,6 +169,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
   <div class="pt">Particle Universe</div>
   <div class="ps">Ultimate Edition · v2.0</div>
 
+  <div class="sc">Game Modes 🎮</div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+    <button class="gm-btn" id="gm-hand">✋ HAND GAME</button>
+    <button class="gm-btn" id="gm-eye">👁 EYE TRACK</button>
+    <button class="gm-btn" id="gm-space">🚀 SPACE</button>
+    <button class="gm-btn" id="gm-neon">💡 NEON</button>
+  </div>
+
+  <div class="sep"></div>
   <div class="sc">Built-in Shapes</div>
   <div class="sg" id="sg">
     <button class="sb active" data-m="tree"><span class="ic">🌲</span><span>Tree</span></button>
@@ -917,6 +955,99 @@ function setupUI(){
     if(tlActive)toast('🎬 Timeline active!');
     renderTL();
   });
+}
+
+// ── GAME MODES ──────────────────────────────────────────────────────────────
+let handOnlyMode=false, eyeTrackMode=false, spaceMode=false, neonMode=false;
+
+function setGameMode(mode){
+  handOnlyMode = (mode==='hand');
+  eyeTrackMode = (mode==='eye');
+  spaceMode = (mode==='space');
+  neonMode = (mode==='neon');
+
+  document.querySelectorAll('.gm-btn').forEach(b=>b.classList.remove('active'));
+  if(mode==='hand') document.getElementById('gm-hand').classList.add('active');
+  if(mode==='eye') document.getElementById('gm-eye').classList.add('active');
+  if(mode==='space') document.getElementById('gm-space').classList.add('active');
+  if(mode==='neon') document.getElementById('gm-neon').classList.add('active');
+
+  // Visual effects
+  document.body.classList.toggle('neon-mode', neonMode);
+  document.getElementById('gm-badge').textContent = mode==='hand'?'HAND GAME':mode==='eye'?'EYE TRACK':mode==='space'?'SPACE NEON':'NEON MODE';
+  document.getElementById('gm-badge').classList.toggle('on', mode!=='none');
+  document.getElementById('gm-ov').textContent = mode==='hand'?'HAND GAME ACTIVE':mode==='eye'?'EYE TRACKING':mode==='space'?'SPACE UNIVERSE':'';
+  document.getElementById('gm-ov').classList.toggle('active', mode!=='none');
+
+  // Apply futuristic effects
+  document.getElementById('panel').classList.toggle('holo-mode', mode==='space'||mode==='neon');
+  CUR.classList.toggle('neon', neonMode);
+  CR.classList.toggle('neon', neonMode);
+
+  // Hand-only mode disables auto-rotate and locks mouse
+  if(handOnlyMode){
+    autoRot=false; document.getElementById('tg-rot').classList.remove('on');
+    document.body.style.cursor='none';
+    toast('✋ HAND GAME MODE — Show hand to camera!');
+  }else{
+    document.body.style.cursor='none'; // keep custom cursor
+  }
+  if(eyeTrackMode){
+    initEyeTrack();
+    document.getElementById('eye-box').classList.add('on');
+    toast('👁 EYE TRACKING MODE — Look at camera!');
+  }else{
+    document.getElementById('eye-box').classList.remove('on');
+  }
+  if(spaceMode){
+    document.getElementById('panel').classList.add('holo-mode');
+    scene.fog = new THREE.FogExp2(0x050508, 0.015);
+    toast('🚀 SPACE NEON MODE ACTIVATED');
+  }
+}
+
+// Game mode buttons
+document.getElementById('gm-hand').addEventListener('click',()=>setGameMode('hand'));
+document.getElementById('gm-eye').addEventListener('click',()=>setGameMode('eye'));
+document.getElementById('gm-space').addEventListener('click',()=>setGameMode('space'));
+document.getElementById('gm-neon').addEventListener('click',()=>setGameMode('neon'));
+
+// ── EYE TRACKING (MediaPipe Face Mesh) ───────────────────────────────────────
+let faceMesh=null, eyeTrackingActive=false;
+function initEyeTrack(){
+  if(eyeTrackingActive || !window.FaceMesh) return;
+  eyeTrackingActive=true;
+  const video=document.getElementById('webcam');
+  faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+  faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+  faceMesh.onResults(r=>{
+    if(r.multiFaceLandmarks&&r.multiFaceLandmarks.length){
+      const landmarks=r.multiFaceLandmarks[0];
+      // Left eye iris center: approximate using landmarks 468-473 area
+      // Use left eye center (landmark 468 is iris center in mediaPipe face mesh)
+      const iris=landmarks[468];
+      const leftEye=landmarks[33]; // left eye outer corner
+      const rightEye=landmarks[263]; // right eye outer corner
+      if(iris){
+        // Calculate eye direction from iris to eye center
+        const eyeCX=(leftEye.x+rightEye.x)*0.5;
+        const eyeCY=(leftEye.y+rightEye.y)*0.5;
+        const dx=iris.x-eyeCX, dy=iris.y-eyeCY;
+        // Map to rotation
+        tRY=-dx*3; // eye left/right controls y rotation
+        tRX=dy*2;  // eye up/down controls x rotation
+        // Scale from iris distance (proxy for proximity)
+        const eyeDist=Math.hypot(leftEye.x-rightEye.x,leftEye.y-rightEye.y);
+        tScl=Math.max(0.5,Math.min(2.5,1+(0.15-eyeDist)*8));
+        autoRot=false;
+        document.getElementById('eye-box').textContent=`EYE: x=${dx.toFixed(2)} y=${dy.toFixed(2)} scale=${tScl.toFixed(2)}`;
+      }
+    }else{
+      document.getElementById('eye-box').textContent='EYE TRACKING: NO FACE';
+    }
+  });
+  const cam=new Camera(video,{onFrame:async()=>await faceMesh.send({image:video}),width:640,height:480});
+  cam.start().catch(e=>{console.log('Eye cam error:',e);});
 }
 
 // ── MediaPipe ────────────────────────────────────────────────────────────────
